@@ -1,7 +1,25 @@
-import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+class MyChromeSafariBrowser extends ChromeSafariBrowser {
+  @override
+  void onOpened() {
+    print("ChromeSafari browser opened");
+  }
+
+  @override
+  void onCompletedInitialLoad() {
+    print("ChromeSafari browser initial load completed");
+  }
+
+  @override
+  void onClosed() {
+    print("ChromeSafari browser closed");
+  }
+}
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -9,61 +27,52 @@ Future main() async {
   await Permission.camera.request();
   await Permission.microphone.request();
 
-  runApp(MyApp());
+  if (Platform.isAndroid) {
+    await AndroidInAppWebViewController.setWebContentsDebuggingEnabled(true);
+  }
+
+  runApp(MaterialApp(home: MyApp()));
 }
 
 class MyApp extends StatefulWidget {
+  final ChromeSafariBrowser browser = new MyChromeSafariBrowser();
+
   @override
   _MyAppState createState() => new _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-        home: InAppWebViewPage()
-    );
+  void initState() {
+    widget.browser.addMenuItem(new ChromeSafariBrowserMenuItem(
+        id: 1,
+        label: 'Custom item menu 1',
+        action: (url, title) {
+          print('Custom item menu 1 clicked!');
+        }));
+    super.initState();
   }
-}
-
-class InAppWebViewPage extends StatefulWidget {
-  @override
-  _InAppWebViewPageState createState() => new _InAppWebViewPageState();
-}
-
-class _InAppWebViewPageState extends State<InAppWebViewPage> {
-  InAppWebViewController? webViewController;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: Container(
-            child: Column(children: <Widget>[
-              Expanded(
-                child: Container(
-                  child: InAppWebView(
-                      initialUrlRequest: URLRequest(url: Uri.parse("https://appr.tc/r/368614339")),
-                      initialOptions: InAppWebViewGroupOptions(
-                        crossPlatform: InAppWebViewOptions(
-                          mediaPlaybackRequiresUserGesture: false,
-                        ),
-                        android: AndroidInAppWebViewOptions(
-                          useHybridComposition: true
-                        ),
-                        ios: IOSInAppWebViewOptions(
-                          allowsInlineMediaPlayback: true,
-                        )
-                      ),
-                      onWebViewCreated: (InAppWebViewController controller) {
-                        webViewController = controller;
-                      },
-                      androidOnPermissionRequest: (InAppWebViewController controller, String origin, List<String> resources) async {
-                        return PermissionRequestResponse(resources: resources, action: PermissionRequestResponseAction.GRANT);
-                      }
-                  ),
-                ),
-              ),
-            ]))
+      appBar: AppBar(
+        title: const Text('ChromeSafariBrowser Example'),
+      ),
+      body: Center(
+        child: ElevatedButton(
+            onPressed: () async {
+              await widget.browser.open(
+                  url: Uri.parse("https://google.com"),
+                  options: ChromeSafariBrowserClassOptions(
+                      android: AndroidChromeCustomTabsOptions(
+                          addDefaultShareMenuItem: false),
+                      ios: IOSSafariOptions(barCollapsingEnabled: true, presentationStyle: IOSUIModalPresentationStyle.FULL_SCREEN)));
+            },
+            child: Text("Open Chrome Safari Browser")),
+      ),
     );
   }
 }
+
+
